@@ -445,3 +445,48 @@ func (b *Bot) SendReminder() error {
 	log.Printf("Sent reminder to %d users for Day %d", len(users), dayNumber)
 	return nil
 }
+
+func (b *Bot) CheckSubmissions() error {
+	today := time.Now().Format("2006-01-02")
+
+	// Get users who haven't submitted today
+	users, err := b.db.GetUsersWhoDidntSubmitToday(today)
+	if err != nil {
+		return fmt.Errorf("failed to get users who didn't submit: %w", err)
+	}
+
+	if len(users) == 0 {
+		log.Println("All users have submitted today!")
+		return nil
+	}
+
+	// Get today's challenge with day number
+	todaysChallenge, dayNumber, err := b.db.GetTodaysChallengeWithDay(today)
+	if err != nil {
+		return fmt.Errorf("failed to get today's challenge: %w", err)
+	}
+
+	for _, user := range users {
+		// Create reminder message with mention
+		var mention string
+		if user.Username != "" {
+			mention = "@" + user.Username
+		} else {
+			mention = user.FirstName
+		}
+
+		messageText := fmt.Sprintf("⏰ **Reminder for %s** ⏰\n\n"+
+			"Hey %s!\n\n"+
+			"Don't forget about today's LeetCode challenge (Day %d):\n"+
+			"📝 **%s**\n"+
+			"🔗 %s\n\n"+
+			"Use /submit when you're done! ⚡",
+			user.FirstName, mention,
+			dayNumber,
+			todaysChallenge.Title,
+			todaysChallenge.URL)
+
+		b.sendMessage(b.config.TelegramGroupID, messageText)
+	}
+	return nil
+}
